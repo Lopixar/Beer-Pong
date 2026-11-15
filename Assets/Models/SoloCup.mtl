@@ -1,0 +1,6 @@
+# Materials for SoloCup.obj
+newmtl Outside
+Kd 0.75 0.1 0.1
+
+newmtl Inside
+Kd 0.95 0.95 0.95

@@ -5,13 +5,14 @@ public class Ball : MonoBehaviour
     public float lifeTime = 5f;
 
     [HideInInspector] public bool isThrown;
+    [HideInInspector] public bool captured; // a cup is pulling it in, dont destroy it
     [HideInInspector] public float fallLimitY;
 
     float timer;
 
     void Update()
     {
-        if (!isThrown)
+        if (!isThrown || captured)
             return;
 
         timer += Time.deltaTime;

@@ -50,6 +50,17 @@ public class TablePlacer : MonoBehaviour
         Quaternion rotation = Quaternion.LookRotation(direction);
 
         currentTable = Instantiate(tablePrefab, position, rotation);
+
+        // the pivot of the table is at the legs, so move it down
+        // until the top of the table is level with the selected surface
+        Transform tableTop = currentTable.transform.Find("TableTop");
+        if (tableTop != null)
+        {
+            // TableTop is a unit cube, so half of its scale is half of its height
+            float topY = tableTop.position.y + tableTop.lossyScale.y * 0.5f;
+            currentTable.transform.position += Vector3.down * (topY - position.y);
+        }
+
         currentTable.AddComponent<ARAnchor>(); // so it stays in place
 
         SetPlanesActive(false);

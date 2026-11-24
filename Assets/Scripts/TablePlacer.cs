@@ -20,7 +20,7 @@ public class TablePlacer : MonoBehaviour
 
     void Start()
     {
-        undoButton.GetComponentInChildren<TextMeshProUGUI>().text = GameTexts.UndoButton;
+        undoButton.GetComponentInChildren<TextMeshProUGUI>().text = GameTexts.MenuButton;
         undoButton.SetActive(false);
     }
 

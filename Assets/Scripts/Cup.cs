@@ -108,6 +108,9 @@ public class Cup : MonoBehaviour
 
     void OnCupHit()
     {
-        // TODO add point
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayScore();
+        }
     }
 }

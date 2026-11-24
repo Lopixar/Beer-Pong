@@ -150,6 +150,12 @@ public class BallThrower : MonoBehaviour
         if (swipeUp < minSwipe)
             return;
 
+        // Play throw sound
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayThrow();
+        }
+
         // quicker swipe = harder throw
         float speed = swipeUp / Mathf.Max(swipeTime, 0.05f) * speedMultiplier;
         speed = Mathf.Clamp(speed, minSpeed, maxSpeed);

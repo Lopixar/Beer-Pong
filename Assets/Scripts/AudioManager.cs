@@ -18,6 +18,8 @@ public class AudioManager : MonoBehaviour
     [Header("Other Sound Effects")]
     public AudioClip scoreClip;
     public AudioClip throwClip;
+    public AudioClip winClip; // optional, played when the victory screen shows up
+    public AudioClip loseClip; // optional, played when the player runs out of throws
 
     const string MUSIC_VOLUME = "MusicVolume";
     const string SFX_VOLUME = "SFXVolume";
@@ -160,6 +162,16 @@ public class AudioManager : MonoBehaviour
     public void PlayScore()
     {
         PlaySFX(scoreClip);
+    }
+
+    public void PlayWin()
+    {
+        PlaySFX(winClip);
+    }
+
+    public void PlayLose()
+    {
+        PlaySFX(loseClip);
     }
 
     public void PlayThrow()

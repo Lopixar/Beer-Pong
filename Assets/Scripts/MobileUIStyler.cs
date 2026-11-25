@@ -7,6 +7,7 @@ using UnityEngine.UI;
 //  - canvas scaling that follows portrait / landscape
 //  - safe area (notch, rounded corners, gesture bar)
 //  - big touch targets, readable text, rounded "neon party" look
+//  - the victory / defeat screen (built here so it shares the look, shown by BallThrower)
 // It keeps all your references and onClick events, it only moves / restyles things.
 // Optional: put a TMP font asset named "UIFont" in any Resources folder to use it everywhere.
 public class MobileUIStyler : MonoBehaviour
@@ -121,6 +122,10 @@ public class MobileUIStyler : MonoBehaviour
     HudPill throwsPill, infoPill;
     RectTransform undoRT;
 
+    VictoryScreen victory;
+    RectTransform victorySafe, victoryHeader, victoryButtons;
+    Image victoryGlowA, victoryGlowB;
+
     int lastW, lastH;
     Rect lastSafe;
 
@@ -166,6 +171,7 @@ public class MobileUIStyler : MonoBehaviour
         BuildMainMenu();
         BuildSettings();
         BuildHud();
+        BuildVictory();
         ApplyLayout();
     }
 
@@ -179,6 +185,13 @@ public class MobileUIStyler : MonoBehaviour
             Color c = glowA.color;
             c.a = 0.30f * (0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 1.6f));
             glowA.color = c;
+        }
+
+        if (victoryGlowA != null && victoryGlowA.gameObject.activeInHierarchy)
+        {
+            Color c = victoryGlowA.color;
+            c.a = 0.34f * (0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 2.2f));
+            victoryGlowA.color = c;
         }
     }
 
@@ -774,6 +787,151 @@ public class MobileUIStyler : MonoBehaviour
         return p;
     }
 
+    // ---------- victory screen ----------
+    // Same recipe as the main menu: gradient background, glows, big two line title,
+    // cyan subtitle, ink card, red primary button + glass button.
+    // Starts hidden, BallThrower shows it through VictoryScreen.Show().
+    void BuildVictory()
+    {
+        RectTransform root = NewRect("VictoryScreen", canvas.transform);
+        Stretch(root);
+        root.SetAsLastSibling(); // above menus and HUD
+        victory = root.gameObject.AddComponent<VictoryScreen>();
+
+        RectTransform panel = NewRect("Panel", root);
+        Stretch(panel);
+        Image bg = panel.gameObject.AddComponent<Image>();
+        StyleBackground(bg);
+        bg.color = new Color(1f, 1f, 1f, 0.9f); // slightly see-through, you still see the table
+        victory.panel = panel.gameObject;
+
+        victoryGlowA = NewImage("GlowA", panel, sprGlow, new Color(Amber.r, Amber.g, Amber.b, 0.34f));
+        victoryGlowB = NewImage("GlowB", panel, sprGlow, new Color(Cyan.r, Cyan.g, Cyan.b, 0.16f));
+
+        RectTransform confetti = NewRect("Confetti", panel);
+        Stretch(confetti);
+        confetti.gameObject.AddComponent<UIConfetti>().Setup(sprPill, new[] { Red, Amber, Cyan, TextMain });
+        victory.confetti = confetti.gameObject;
+        victory.glow = victoryGlowA;
+
+        victorySafe = MakeSafeArea(panel);
+        AddIntro(panel, victorySafe);
+
+        victoryHeader = NewRect("Header", victorySafe);
+        victoryButtons = NewRect("Buttons", victorySafe);
+
+        Vector2 top = new Vector2(0.5f, 1f);
+
+        // title
+        TextMeshProUGUI title = NewText("Title", victoryHeader,
+            GameTexts.VictoryLine1 + "\n<color=#FFC23C>" + GameTexts.VictoryLine2 + "</color>",
+            190f, TextMain, FontStyles.Bold, TextAlignmentOptions.Center);
+        title.lineSpacing = -28f;
+        title.characterSpacing = 4f;
+        Place(title.rectTransform, top, top, Vector2.zero, new Vector2(900f, 420f));
+        Underlay(title, new Color(0f, 0f, 0f, 0.65f), 0.7f, 0.25f, 0.35f);
+        title.gameObject.AddComponent<UIPopIn>();
+        victory.title = title;
+
+        // subtitle (the text is set by VictoryScreen.Show)
+        TextMeshProUGUI sub = NewText("Subtitle", victoryHeader, GameTexts.VictoryAllCups, 42f, Cyan,
+            FontStyles.Bold, TextAlignmentOptions.Center);
+        sub.characterSpacing = 12f;
+        Place(sub.rectTransform, top, top, new Vector2(0f, -405f), new Vector2(900f, 60f));
+        victory.subtitle = sub;
+        for (int i = 0; i < 2; i++)
+        {
+            Image line = NewImage(i == 0 ? "LineL" : "LineR", victoryHeader, sprPill,
+                new Color(Cyan.r, Cyan.g, Cyan.b, 0.6f), Image.Type.Sliced);
+            Place(line.rectTransform, top, new Vector2(0.5f, 0.5f),
+                new Vector2(i == 0 ? -395f : 395f, -435f), new Vector2(90f, 6f));
+            Round(line, 3f);
+        }
+
+        // stats card
+        Image card = NewImage("StatsCard", victoryHeader, sprPill, new Color(Ink.r, Ink.g, Ink.b, 0.78f), Image.Type.Sliced);
+        Round(card, 56f);
+        Place(card.rectTransform, top, top, new Vector2(0f, -500f), new Vector2(900f, 250f));
+        Image cardRing = NewImage("Ring", card.transform, sprPillRing, new Color(1f, 1f, 1f, 0.14f), Image.Type.Sliced);
+        Stretch(cardRing.rectTransform);
+        Round(cardRing, 56f);
+
+        victory.cupsValue = BuildStat(card.rectTransform, 0, GameTexts.StatCups, Amber);
+        victory.throwsValue = BuildStat(card.rectTransform, 1, GameTexts.StatThrows, Cyan);
+        victory.accuracyValue = BuildStat(card.rectTransform, 2, GameTexts.StatAccuracy, Red);
+        for (int i = 1; i <= 2; i++)
+        {
+            Image div = NewImage("Divider", card.transform, sprPill, new Color(1f, 1f, 1f, 0.14f), Image.Type.Sliced);
+            Place(div.rectTransform, new Vector2(i / 3f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(4f, 120f));
+            Round(div, 2f);
+        }
+
+        // buttons
+        VerticalLayoutGroup v = victoryButtons.gameObject.AddComponent<VerticalLayoutGroup>();
+        v.spacing = 28f;
+        v.childAlignment = TextAnchor.MiddleCenter;
+        v.childControlWidth = true;
+        v.childControlHeight = true;
+        v.childForceExpandWidth = true;
+        v.childForceExpandHeight = false;
+
+        Button again = AddVictoryButton("PlayAgainButton", GameTexts.PlayAgain, Look.Primary, 160f, 68f);
+        again.onClick.AddListener(OnVictoryPlayAgain);
+        victory.playAgainLabel = again.GetComponentInChildren<TMP_Text>(true); // "TRY AGAIN" on defeat
+        AddVictoryButton("MenuButton", GameTexts.MenuButton, Look.Glass, 128f, 52f).onClick.AddListener(OnVictoryMenu);
+
+        panel.gameObject.SetActive(false);
+    }
+
+    TextMeshProUGUI BuildStat(RectTransform card, int index, string label, Color accent)
+    {
+        RectTransform col = NewRect(label + "Stat", card);
+        col.anchorMin = new Vector2(index / 3f, 0f);
+        col.anchorMax = new Vector2((index + 1) / 3f, 1f);
+        col.offsetMin = Vector2.zero;
+        col.offsetMax = Vector2.zero;
+
+        Vector2 mid = new Vector2(0.5f, 0.5f);
+
+        TextMeshProUGUI value = NewText("Value", col, "-", 84f, accent, FontStyles.Bold, TextAlignmentOptions.Center);
+        value.enableAutoSizing = true;
+        value.fontSizeMax = 84f;
+        value.fontSizeMin = 40f;
+        Place(value.rectTransform, mid, mid, new Vector2(0f, 30f), new Vector2(250f, 110f));
+        Underlay(value, new Color(0f, 0f, 0f, 0.5f), 0.5f, 0.15f, 0.3f);
+
+        TextMeshProUGUI cap = NewText("Label", col, label, 32f, new Color(TextMain.r, TextMain.g, TextMain.b, 0.65f),
+            FontStyles.Bold | FontStyles.UpperCase, TextAlignmentOptions.Center);
+        cap.characterSpacing = 6f;
+        Place(cap.rectTransform, mid, mid, new Vector2(0f, -52f), new Vector2(270f, 44f));
+
+        return value;
+    }
+
+    Button AddVictoryButton(string name, string label, Look look, float h, float fs)
+    {
+        RectTransform rt = NewRect(name, victoryButtons);
+        rt.gameObject.AddComponent<Image>();
+        Button b = rt.gameObject.AddComponent<Button>();
+        NewText("Label", rt, label, fs, TextMain, FontStyles.Bold, TextAlignmentOptions.Center);
+        SetHeight(rt.gameObject, h);
+        StyleButton(b, look, h, fs);
+        return b;
+    }
+
+    // same table, fresh cups (also the "try again" of the defeat screen)
+    void OnVictoryPlayAgain()
+    {
+        victory.Hide();
+        if (placer != null) placer.ReplayTable();
+    }
+
+    void OnVictoryMenu()
+    {
+        victory.Hide();
+        menu.ReturnToMenu();
+    }
+
     // ---------- layout (portrait / landscape / safe area) ----------
     void ApplyLayout()
     {
@@ -792,10 +950,12 @@ public class MobileUIStyler : MonoBehaviour
         FitSafe(menuSafe);
         FitSafe(settingsSafe);
         FitSafe(hudSafe);
+        FitSafe(victorySafe);
 
         LayoutMainMenu(land, safeW, safeH);
         LayoutSettings(land, safeW, safeH);
         LayoutHud(land, safeW);
+        LayoutVictory(land, safeW, safeH);
     }
 
     void LayoutMainMenu(bool land, float safeW, float safeH)
@@ -855,6 +1015,42 @@ public class MobileUIStyler : MonoBehaviour
 
         if (setGlow != null)
             Place(setGlow.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600f, 1600f));
+    }
+
+    void LayoutVictory(bool land, float safeW, float safeH)
+    {
+        if (victoryHeader == null) return;
+
+        const float headerH = 780f;
+        const float buttonsH = 160f + 128f + 28f;
+        Vector2 half = new Vector2(0.5f, 0.5f);
+
+        if (!land)
+        {
+            float bw = Mathf.Min(safeW - 120f, 780f);
+            Place(victoryButtons, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 100f), new Vector2(bw, buttonsH));
+
+            float availH = safeH - (100f + buttonsH + 40f) - 40f;
+            float s = Mathf.Clamp(Mathf.Min(availH / headerH, (safeW - 40f) / 900f), 0.5f, 1f);
+            float y = -(40f + Mathf.Max(0f, (availH - headerH * s) * 0.5f));
+            Place(victoryHeader, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(900f, headerH));
+            victoryHeader.localScale = Vector3.one * s;
+
+            Place(victoryGlowA.rectTransform, new Vector2(0.5f, 1f), half, new Vector2(0f, -520f), new Vector2(1500f, 1500f));
+            Place(victoryGlowB.rectTransform, new Vector2(0.5f, 0f), half, new Vector2(0f, 280f), new Vector2(1300f, 1300f));
+        }
+        else
+        {
+            float s = Mathf.Clamp(Mathf.Min((safeH - 40f) / headerH, (safeW * 0.5f - 40f) / 900f), 0.5f, 1f);
+            Place(victoryHeader, new Vector2(0.27f, 0.5f), half, Vector2.zero, new Vector2(900f, headerH));
+            victoryHeader.localScale = Vector3.one * s;
+
+            float bw = Mathf.Min(safeW * 0.40f, 720f);
+            Place(victoryButtons, new Vector2(0.74f, 0.5f), half, Vector2.zero, new Vector2(bw, buttonsH));
+
+            Place(victoryGlowA.rectTransform, new Vector2(0.27f, 0.5f), half, Vector2.zero, new Vector2(1500f, 1500f));
+            Place(victoryGlowB.rectTransform, new Vector2(0.74f, 0.5f), half, Vector2.zero, new Vector2(1200f, 1200f));
+        }
     }
 
     void LayoutHud(bool land, float safeW)
@@ -993,5 +1189,116 @@ public class UIBob : MonoBehaviour
     void Update()
     {
         rt.anchoredPosition = basePos + new Vector2(0f, Mathf.Sin(Time.unscaledTime * speed) * amplitude);
+    }
+}
+
+// confetti falling behind the victory card (plain UI images, no particle system needed)
+public class UIConfetti : MonoBehaviour
+{
+    public int count = 44;
+
+    RectTransform self;
+    RectTransform[] pieces;
+    float[] baseX, y, speed, sway, freq, phase, spin;
+    bool placed;
+
+    // call once right after AddComponent
+    public void Setup(Sprite sprite, Color[] colors)
+    {
+        self = (RectTransform)transform;
+        pieces = new RectTransform[count];
+        baseX = new float[count];
+        y = new float[count];
+        speed = new float[count];
+        sway = new float[count];
+        freq = new float[count];
+        phase = new float[count];
+        spin = new float[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            var go = new GameObject("Piece", typeof(RectTransform), typeof(Image));
+            RectTransform rt = (RectTransform)go.transform;
+            rt.SetParent(self, false);
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            float w = Random.Range(16f, 30f);
+            rt.sizeDelta = new Vector2(w, w * Random.Range(0.4f, 0.7f));
+
+            Image img = go.GetComponent<Image>();
+            img.sprite = sprite;
+            img.color = colors[i % colors.Length];
+            img.raycastTarget = false;
+
+            pieces[i] = rt;
+            phase[i] = Random.Range(0f, 6.28f);
+        }
+    }
+
+    void OnEnable()
+    {
+        placed = false;
+    }
+
+    void Respawn(int i, bool spreadOverScreen)
+    {
+        Rect r = self.rect;
+        baseX[i] = Random.Range(-r.width * 0.5f, r.width * 0.5f);
+        y[i] = r.height * 0.5f + 40f + Random.Range(0f, spreadOverScreen ? r.height : 240f);
+        speed[i] = Random.Range(200f, 460f);
+        sway[i] = Random.Range(20f, 70f);
+        freq[i] = Random.Range(1.2f, 3f);
+        spin[i] = Random.Range(-260f, 260f);
+    }
+
+    void Update()
+    {
+        if (pieces == null) return;
+
+        if (!placed)
+        {
+            for (int i = 0; i < count; i++) Respawn(i, true);
+            placed = true;
+        }
+
+        float dt = Time.unscaledDeltaTime;
+        float now = Time.unscaledTime;
+        float bottom = -self.rect.height * 0.5f - 60f;
+
+        for (int i = 0; i < count; i++)
+        {
+            y[i] -= speed[i] * dt;
+            if (y[i] < bottom) Respawn(i, false);
+
+            float x = baseX[i] + Mathf.Sin(now * freq[i] + phase[i]) * sway[i];
+            pieces[i].anchoredPosition = new Vector2(x, y[i]);
+            pieces[i].localRotation = Quaternion.Euler(0f, 0f, now * spin[i] + phase[i] * 57f);
+        }
+    }
+}
+
+// quick pop with a little overshoot when shown (the victory title)
+public class UIPopIn : MonoBehaviour
+{
+    public float duration = 0.55f, delay = 0.12f;
+    Vector3 baseScale = Vector3.one;
+    float t;
+
+    void Awake() { baseScale = transform.localScale; }
+
+    void OnEnable()
+    {
+        t = -delay;
+        transform.localScale = Vector3.zero;
+    }
+
+    void Update()
+    {
+        if (t >= duration) return;
+        t += Time.unscaledDeltaTime;
+        float k = Mathf.Clamp01(t / duration);
+        float c1 = 1.70158f, c3 = c1 + 1f;
+        float e = 1f + c3 * Mathf.Pow(k - 1f, 3f) + c1 * Mathf.Pow(k - 1f, 2f); // ease out back
+        transform.localScale = baseScale * (t < 0f ? 0f : e);
     }
 }

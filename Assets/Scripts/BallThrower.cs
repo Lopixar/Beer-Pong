@@ -13,6 +13,12 @@ public class BallThrower : MonoBehaviour
     public int maxThrows = 20;
     public float throwZoneRadius = 0.8f; // in meters
 
+    [Header("Victory")]
+    [Tooltip("Cups you have to knock down to win. 0 = all of them. Set it to 1 or 2 to test the victory screen quickly.")]
+    public int cupsToWin = 0;
+    [Tooltip("Editor only: press V to force the victory screen, L to force the defeat screen.")]
+    public bool debugVictoryKey = true;
+
     [Header("Ball in hand")]
     public Vector3 holdOffset = new Vector3(0f, -0.1f, 0.3f);
 
@@ -31,10 +37,34 @@ public class BallThrower : MonoBehaviour
     int throwsLeft;
     bool gameOver;
 
+    bool victory;
+    int cupsTotal;
+    int cupsHit;
+
     bool swiping;
     Vector2 swipeStart;
     Vector2 swipeEnd;
     float swipeStartTime;
+
+    // how many cups have to go down for the victory screen
+    public int CupsNeeded
+    {
+        get
+        {
+            int needed = cupsToWin > 0 ? Mathf.Min(cupsToWin, cupsTotal) : cupsTotal;
+            return Mathf.Max(1, needed);
+        }
+    }
+
+    void OnEnable()
+    {
+        Cup.Scored += OnCupScored;
+    }
+
+    void OnDisable()
+    {
+        Cup.Scored -= OnCupScored;
+    }
 
     void Start()
     {
@@ -48,6 +78,13 @@ public class BallThrower : MonoBehaviour
         throwZone = table.transform.Find("ThrowZone");
         throwsLeft = maxThrows;
         gameOver = false;
+
+        victory = false;
+        cupsHit = 0;
+        cupsTotal = table.GetComponentsInChildren<Cup>(true).Length;
+
+        if (VictoryScreen.Instance != null)
+            VictoryScreen.Instance.Hide();
     }
 
     public void StopGame()
@@ -55,12 +92,32 @@ public class BallThrower : MonoBehaviour
         Destroy(heldBall);
         Destroy(thrownBall);
         table = null;
+        victory = false;
         throwsText.text = "";
+
+        if (VictoryScreen.Instance != null)
+            VictoryScreen.Instance.Hide();
     }
 
     void Update()
     {
-        if (table == null)
+#if UNITY_EDITOR
+        // quick way to check the victory screen without playing
+        if (debugVictoryKey && !victory
+            && Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame)
+        {
+            Win();
+        }
+
+        if (debugVictoryKey && !victory
+            && Keyboard.current != null && Keyboard.current.lKey.wasPressedThisFrame)
+        {
+            OnNoThrowsLeft();
+        }
+#endif
+
+        // table gone or already won: nothing to do (no more balls)
+        if (table == null || victory)
             return;
 
         throwsText.text = GameTexts.ThrowsLeft + throwsLeft;
@@ -184,9 +241,66 @@ public class BallThrower : MonoBehaviour
         throwsLeft--;
     }
 
+    // out of throws and the last ball is gone: cups are still standing, so the player loses
     void OnNoThrowsLeft()
     {
-        infoText.text = GameTexts.NoThrowsLeft;
-        // TODO end screen
+        infoText.text = "";
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayLose();
+
+        if (VictoryScreen.Instance != null)
+            VictoryScreen.Instance.ShowDefeat(cupsHit, cupsTotal, maxThrows);
+        else
+            Debug.LogWarning("BallThrower: out of throws but there is no end screen (is MobileUIStyler running?).");
+    }
+
+    void OnCupScored(Cup cup)
+    {
+        // ignore cups that are not part of the current table
+        if (table == null || victory || !cup.transform.IsChildOf(table.transform))
+            return;
+
+        cupsHit++;
+
+        if (cupsHit >= CupsNeeded)
+            Win();
+    }
+
+    void Win()
+    {
+        // without a table (debug) there is no game to stop, so the flag stays free for more tests
+        victory = table != null;
+        swiping = false;
+
+        Destroy(heldBall);
+        Destroy(thrownBall);
+        heldBall = null;
+        thrownBall = null;
+
+        throwsText.text = "";
+        infoText.text = "";
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayWin();
+
+        if (VictoryScreen.Instance != null)
+            VictoryScreen.Instance.Show(cupsHit, cupsTotal, table != null ? maxThrows - throwsLeft : 0);
+        else
+            Debug.LogWarning("BallThrower: victory reached but there is no VictoryScreen (is MobileUIStyler running?).");
+    }
+
+    [ContextMenu("Debug/Force defeat")]
+    void DebugForceDefeat()
+    {
+        if (Application.isPlaying && !victory)
+            OnNoThrowsLeft();
+    }
+
+    [ContextMenu("Debug/Force victory")]
+    void DebugForceVictory()
+    {
+        if (Application.isPlaying && !victory)
+            Win();
     }
 }

@@ -70,6 +70,24 @@ public class TablePlacer : MonoBehaviour
         ballThrower.StartGame(currentTable);
     }
 
+    // victory screen "play again": same spot, fresh cups
+    public void ReplayTable()
+    {
+        if (currentTable == null)
+            return;
+
+        Vector3 position = currentTable.transform.position;
+        Quaternion rotation = currentTable.transform.rotation;
+
+        ballThrower.StopGame();
+        Destroy(currentTable);
+
+        currentTable = Instantiate(tablePrefab, position, rotation);
+        currentTable.AddComponent<ARAnchor>();
+
+        ballThrower.StartGame(currentTable);
+    }
+
     // undo button
     public void UndoTable()
     {

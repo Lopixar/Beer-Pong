@@ -16,6 +16,9 @@ public class Cup : MonoBehaviour
     public float captureDuration = 0.2f;
     public float ballRestY = -0.035f;   // where the ball ends up (ball center)
 
+    // raised when a cup is scored (right before the cup is destroyed)
+    public static event System.Action<Cup> Scored;
+
     bool scored;
 
     void Awake()
@@ -112,5 +115,8 @@ public class Cup : MonoBehaviour
         {
             AudioManager.Instance.PlayScore();
         }
+
+        if (Scored != null)
+            Scored(this);
     }
 }
